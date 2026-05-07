@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mainMenu>
+    <menuBar>
+        <subMenu id="tools_menu">
+            <separatorItem id="bx_sep"/>
+            
+            <titleItem id="bx_title">
+                <label>Blendini Xform</label>
+            </titleItem>
+            
+            <scriptItem id="bx_enabled">
+                <labelExpression><![CDATA[
+cur = hou.getPreference('custom.bx.enabled')
+checked = cur != '0'
+box = u"\u2611 " if checked else u"\u2610 "
+return box + 'Enabled'
+]]></labelExpression>
+                <scriptCode><![CDATA[
+try:
+    from PySide6 import QtWidgets
+except ImportError:
+    from PySide2 import QtWidgets
+cur = hou.getPreference('custom.bx.enabled')
+if cur == '':
+    hou.addPreference('custom.bx.enabled', '0')
+    new_val = '0'
+else:
+    new_val = '0' if cur == '1' else '1'
+    hou.setPreference('custom.bx.enabled', new_val)
+
+app = QtWidgets.QApplication.instance()
+if new_val == '0':
+    if hasattr(hou.session, 'bx_network_filter') and hou.session.bx_network_filter is not None:
+        app.removeEventFilter(hou.session.bx_network_filter)
+else:
+    if hasattr(hou.session, 'bx_network_filter') and hou.session.bx_network_filter is not None:
+        app.installEventFilter(hou.session.bx_network_filter)
+]]></scriptCode>
+            </scriptItem>
+            
+            <scriptItem id="bx_rotate">
+                <labelExpression><![CDATA[
+cur = hou.getPreference('custom.bx.rotate')
+checked = cur == '1'
+box = u"\u2611 " if checked else u"\u2610 "
+return box + 'Rotate Nodes (R)'
+]]></labelExpression>
+                <scriptCode><![CDATA[
+cur = hou.getPreference('custom.bx.rotate')
+if cur == '':
+    hou.addPreference('custom.bx.rotate', '1')
+else:
+    hou.setPreference('custom.bx.rotate', '0' if cur == '1' else '1')
+]]></scriptCode>
+            </scriptItem>
+            
+        </subMenu>
+    </menuBar>
+</mainMenu>

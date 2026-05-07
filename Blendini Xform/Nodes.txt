@@ -1,0 +1,96 @@
+# Blendini Xform - Supported Nodes
+# Add or remove nodes to customize which nodes will be supported.
+# Format: category/node_name (one per line)
+
+# Objects
+obj/bone
+obj/cam
+obj/dopnet
+obj/geo
+obj/hlight::2.0
+obj/instance
+obj/light
+obj/microphone
+obj/null
+obj/sound
+obj/stereocamrig
+obj/subnet
+
+# Sops
+sop/add
+sop/attribnoise::2.0
+sop/box
+sop/circle
+sop/clip
+sop/clip::2.0
+sop/copyxform
+sop/curve::2.0
+sop/distancefromtarget
+sop/edit
+sop/font
+sop/grid
+sop/groupcreate
+sop/heightfield
+sop/lidarimport
+sop/line
+sop/lsystem
+sop/magnet
+sop/matchsize
+sop/metaball
+sop/mirror
+sop/planarpatch
+sop/platonic
+sop/polyextrude::2.0
+sop/primitive
+sop/rbdxform
+sop/revolve
+sop/revolve::2.0
+sop/softxform
+sop/sphere
+sop/superquad
+sop/torus
+sop/trace
+sop/tube
+sop/uvedit
+sop/uvtransform::2.0
+sop/vectordeform
+sop/volume
+sop/xform
+
+# Sop Test Geometries
+sop/testgeometry_pighead
+sop/testgeometry_capybara
+sop/testgeometry_crag
+sop/testgeometry_electra
+sop/testgeometry_squab
+sop/testgeometry_tommy
+sop/testgeometry_rubbertoy
+sop/testgeometry_shaderball::2.0
+sop/testgeometry_templatebody
+sop/testgeometry_templatehead
+sop/testgeometry_otto
+
+# Dops
+dop/popgroup
+dop/popkill
+dop/poplocation
+dop/groundplane
+dop/popaxisforce
+dop/popfan
+dop/popattract
+
+# Lops
+lop/xform
+lop/camera
+lop/light::2.0
+lop/distantlight::2.0
+lop/cube
+lop/cone
+lop/cylinder::2.0
+lop/sphere
+lop/createxform
+lop/mesh
+lop/assetreference
+lop/transformuv
+lop/duplicate
+lop/sopcreate
