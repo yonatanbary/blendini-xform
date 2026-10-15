@@ -192,23 +192,38 @@ def torso_on_screen(cam, P):
 
 
 # ---------------------------------------------------------------- loops
-def best_loop(DM, n, MOT, A, B, L, shots, action):
-    """Exact search for a seamless loop alternating clips A,B with fixed-length shots.
-    A shot starting at frame i ends by cutting at frame i+L; every seam, including last->first, is scored."""
-    gap = L + 10
-    ia = np.arange(4, n[A] - L - 4)
-    kb = np.arange(4, n[B] - L - 4)
+def edge(DM, n, MOT, X, Y, sx, sy, Ls, action):
+    """Best cost of a shot of clip X starting at sx[i] (any length in Ls) cutting into clip Y at sy[k].
+    The seam only depends on that shot's start, its length and the next start, so length is optimised per edge."""
+    cs = np.cumsum(np.r_[0, MOT[X]])
+    best = np.full((len(sx), len(sy)), np.inf); arg = np.zeros(best.shape, int)
+    for L in Ls:
+        ok = sx + L <= n[X] - 4
+        if not ok.any():
+            continue
+        c = np.full(best.shape, np.inf)
+        c[ok] = DM[(X, Y)][sx[ok] + L][:, sy] - action * ((cs[sx[ok] + L] - cs[sx[ok]]) / L)[:, None]
+        better = c < best
+        best[better] = c[better]; arg[better] = L
+    return best, arg
+
+
+def best_loop(DM, n, MOT, A, B, Ls, shots, action):
+    """Exact search for a seamless loop of clips A,B: A -> B -> back to A (shots=2) or A -> B -> A' -> B' -> A (shots=4).
+    Every seam, including last -> first, is scored. Returns (cost, [(clip, start, length), ...])."""
+    lmin, lmax = min(Ls), max(Ls)
+    ia = np.arange(4, n[A] - lmin - 4)
+    kb = np.arange(4, n[B] - lmin - 4)
     if len(ia) == 0 or len(kb) == 0:
         return None
-    cs = np.cumsum(np.r_[0, MOT[A]]); act_a = (cs[ia + L] - cs[ia]) / L
-    cs = np.cumsum(np.r_[0, MOT[B]]); act_b = (cs[kb + L] - cs[kb]) / L
-    AB = DM[(A, B)][ia + L][:, kb] - action * act_a[:, None]              # A shot i  -> B shot k
-    BA = DM[(B, A)][kb + L][:, ia] - action * act_b[:, None]              # B shot k  -> A shot i
+    AB, LA = edge(DM, n, MOT, A, B, ia, kb, Ls, action)                    # A shot i  -> B shot k
+    BA, LB = edge(DM, n, MOT, B, A, kb, ia, Ls, action)                    # B shot k  -> A shot i
     if shots == 2:
         C = AB + BA.T
         i, k = np.unravel_index(np.argmin(C), C.shape)
-        return C[i, k], [(A, int(ia[i])), (B, int(kb[k]))]
+        return C[i, k], [(A, int(ia[i]), int(LA[i, k])), (B, int(kb[k]), int(LB[k, i]))]
     # 4 shots: A(i) -> B(k) -> A(j) -> B(m) -> A(i); X[i, j] = best B shot between A(i) and A(j)
+    gap = lmax + 10
     X = np.empty((len(ia), len(ia))); K = np.empty_like(X, dtype=int)
     for r in range(0, len(ia), 64):
         t = AB[r:r + 64, :, None] + BA[None]                               # (i, k, j)
@@ -230,28 +245,29 @@ def best_loop(DM, n, MOT, A, B, L, shots, action):
         else:
             cost = C[i, j]
         if cost < best[0]:
-            best = (cost, [(A, int(ia[i])), (B, int(kb[k])), (A, int(ia[j])), (B, int(kb[m]))])
+            best = (cost, [(A, int(ia[i]), int(LA[i, k])), (B, int(kb[k]), int(LB[k, j])),
+                           (A, int(ia[j]), int(LA[j, m])), (B, int(kb[m]), int(LB[m, i]))])
     return best if best[1] else None
 
 
 def cmd_loop(a):
     DM, n, MOT = match_matrices(a)
-    L = round(a.shot * FPS)
+    Ls = range(round((a.shot_min or a.shot) * FPS), round((a.shot_max or a.shot) * FPS) + 1)
     clips = sorted(n)
     pairs = [tuple(map(int, p.split(","))) for p in a.pairs] if a.pairs else \
             [(x, y) for i, x in enumerate(clips) for y in clips[i + 1:]]
     found = []
     for A, B in pairs:
-        r = best_loop(DM, n, MOT, A, B, L, a.loop_shots, a.action)
+        r = best_loop(DM, n, MOT, A, B, Ls, a.loop_shots, a.action)
         if r:
             found.append((r[0], A, B, r[1]))
     found.sort(key=lambda r: r[0])
     for cost, A, B, shots in found:
-        print(f"clips {A}+{B}: cost {cost:+.3f}  " + "  ".join(f"c{c}@{f}" for c, f in shots))
+        print(f"clips {A}+{B}: cost {cost:+.3f}  " + "  ".join(f"c{c}@{f}+{L / FPS:.2f}s" for c, f, L in shots))
     os.makedirs(a.loop_dir, exist_ok=True)
     for cost, A, B, shots in found[:a.top]:
         plan = dict(torso=a.torso, hip_y=a.hip_y, loop=True,
-                    shots=[dict(clip=c, file=a.clips[c], fin=f, fout=f + L) for c, f in shots])
+                    shots=[dict(clip=c, file=a.clips[c], fin=f, fout=f + L) for c, f, L in shots])
         base = os.path.join(a.loop_dir, f"loop_{A}_{B}")
         json.dump(plan, open(base + ".json", "w"), indent=1)
         R = Renderer(a, plan)
@@ -381,7 +397,7 @@ def main():
     ap.add_argument("--audio-start", type=float, default=0.0)
     ap.add_argument("--remove-captions", type=float, default=0.0, metavar="TOP_FRAC",
                     help="inpaint static white caption text in the top TOP_FRAC of each clip (e.g. 0.3)")
-    ap.add_argument("--loop-shots", type=int, default=4, choices=[2, 4], help="loop: shots per cycle (A B or A B A B)")
+    ap.add_argument("--loop-shots", type=int, default=2, choices=[2, 4], help="loop: shots per cycle (A B or A B A' B')")
     ap.add_argument("--pairs", nargs="*", help="loop: clip pairs like 0,3 1,4 (default: every pair)")
     ap.add_argument("--top", type=int, default=3, help="loop: render the N best pairs")
     ap.add_argument("--action", type=float, default=0.5, help="loop: reward for movement inside shots (avoid static loops)")
