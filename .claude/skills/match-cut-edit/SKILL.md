@@ -53,10 +53,19 @@ Always look at the cut/seam sheet before handing over: in the overlay column the
 | `--hip-y` | 1500 | on-screen hip height |
 | `--motion-weight` | 6 | how much matching movement direction matters vs static pose |
 | `--audio` | none | clip id or file for the soundtrack (loops are silent so they loop cleanly) |
-| `--remove-captions 0.3` | off | inpaint static white text in the top 30% of each clip |
+| `--remove-captions 0.3` | off | inpaint static white text (captions, @handle watermarks) in the top fraction of each clip. Use 1.0 for captions anywhere; a stroke and shape filter skips bright windows and walls |
 | `--loop-shots` | 2 | 2 = A B (preferred: only two clips, two shots), 4 = A B A′ B′ |
 | `--pairs 0,3 1,4` | all | restrict which clip pairs to try for loops |
 | `--action` | 0.5 | loop reward for movement within shots |
+| `--per-pair` | 1 | distinct loops per clip pair (no shared moments). Use 4+ when there are only 2 clips |
+| `--min-vis` | 0.5 | frames whose shoulder/hip visibility is below this are never shown or cut on (close-ups, walking out of frame) |
+
+## Choosing --torso / --hip-y per footage
+
+Run `loop ... --top 0` for a few combinations: it just prints the ranking (~10s each). Pick the lowest cost **that still keeps the head in frame**. Shoulders sit at `hip_y - torso` on screen and the head needs ~0.5×torso above that.
+- Loose framing (head to knees, torso ≈ 25% of frame height): `--torso 600 --hip-y 1500`.
+- Tight selfie framing (head to upper thigh, torso ≈ 45%): `--torso 1000 --hip-y 1800`. 1100/1700 matched slightly better but cut off the top of the head.
+- The "can't hold torso size" warning means the source is too tight for that torso value. Raise `--torso`.
 
 ## Gotchas
 
